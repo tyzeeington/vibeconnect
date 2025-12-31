@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from typing import List
 from sqlalchemy.orm import Session
@@ -38,10 +38,14 @@ async def get_my_connections(
     """
     Get all confirmed connections for a user
     """
-    # Get the user
+    # Get the user by wallet address
     user = db.query(User).filter(User.wallet_address == wallet_address).first()
+
     if not user:
-        return []
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
 
     # Query connections where user is userA or userB
     connections = db.query(Connection).filter(
@@ -51,21 +55,19 @@ async def get_my_connections(
         )
     ).all()
 
-    # Build response
+    # Build response for each connection
     result = []
     for conn in connections:
-        # Determine the "other" user
-        if conn.user_a_id == user.id:
-            other_user_id = conn.user_b_id
-        else:
-            other_user_id = conn.user_a_id
+        # Determine who the "other user" is
+        other_user_id = conn.user_b_id if conn.user_a_id == user.id else conn.user_a_id
 
+        # Get the other user's data
         other_user = db.query(User).filter(User.id == other_user_id).first()
 
-        # Get event details
+        # Get the event data
         event = db.query(Event).filter(Event.id == conn.event_id).first()
 
-        # Get match to retrieve compatibility score
+        # Get compatibility score from the match
         match = db.query(Match).filter(Match.id == conn.match_id).first() if conn.match_id else None
         compatibility_score = match.compatibility_score if match else 0.0
 
