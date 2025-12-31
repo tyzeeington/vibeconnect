@@ -1,6 +1,12 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import List
+from sqlalchemy.orm import Session
+from sqlalchemy import or_
+
+from app.database import get_db
+from app.models import Connection, User, Event, Match
+from app.services.web3_service import web3_service
 
 router = APIRouter()
 
@@ -25,17 +31,89 @@ class NFTMetadata(BaseModel):
     timestamp: int
 
 @router.get("/", response_model=List[ConnectionResponse])
-async def get_my_connections(wallet_address: str):
+async def get_my_connections(
+    wallet_address: str,
+    db: Session = Depends(get_db)
+):
     """
     Get all confirmed connections for a user
     """
-    # TODO: Query connections where user is userA or userB
-    return []
+    # Get the user
+    user = db.query(User).filter(User.wallet_address == wallet_address).first()
+    if not user:
+        return []
+
+    # Query connections where user is userA or userB
+    connections = db.query(Connection).filter(
+        or_(
+            Connection.user_a_id == user.id,
+            Connection.user_b_id == user.id
+        )
+    ).all()
+
+    # Build response
+    result = []
+    for conn in connections:
+        # Determine the "other" user
+        if conn.user_a_id == user.id:
+            other_user_id = conn.user_b_id
+        else:
+            other_user_id = conn.user_a_id
+
+        other_user = db.query(User).filter(User.id == other_user_id).first()
+
+        # Get event details
+        event = db.query(Event).filter(Event.id == conn.event_id).first()
+
+        # Get match to retrieve compatibility score
+        match = db.query(Match).filter(Match.id == conn.match_id).first() if conn.match_id else None
+        compatibility_score = match.compatibility_score if match else 0.0
+
+        result.append(ConnectionResponse(
+            connection_id=conn.id,
+            other_user_wallet=other_user.wallet_address if other_user else "",
+            other_user_username=other_user.username if other_user else None,
+            event_id=event.event_id if event else "",
+            compatibility_score=compatibility_score,
+            connection_nft_id=conn.connection_nft_id,
+            transaction_hash=conn.transaction_hash,
+            pesobytes_earned=conn.pesobytes_earned,
+            created_at=conn.created_at.isoformat() if conn.created_at else ""
+        ))
+
+    return result
 
 @router.get("/{connection_id}/nft", response_model=NFTMetadata)
-async def get_connection_nft(connection_id: int):
+async def get_connection_nft(
+    connection_id: int,
+    db: Session = Depends(get_db)
+):
     """
-    Get NFT metadata for a connection
+    Get NFT metadata for a connection by querying on-chain data
     """
-    # TODO: Query connection and fetch on-chain data
-    return None
+    # Query connection from database
+    connection = db.query(Connection).filter(Connection.id == connection_id).first()
+    if not connection:
+        raise HTTPException(status_code=404, detail="Connection not found")
+
+    # Check if connection has an NFT
+    if not connection.connection_nft_id:
+        raise HTTPException(status_code=404, detail="Connection does not have an NFT yet")
+
+    # Fetch on-chain data
+    nft_data = await web3_service.get_connection_nft_data(connection.connection_nft_id)
+    if not nft_data:
+        raise HTTPException(status_code=500, detail="Failed to fetch on-chain NFT data")
+
+    # Get event details
+    event = db.query(Event).filter(Event.id == connection.event_id).first()
+
+    return NFTMetadata(
+        token_id=nft_data['token_id'],
+        metadata_uri=nft_data.get('metadata_uri', ''),
+        user_a=nft_data['user_a'],
+        user_b=nft_data['user_b'],
+        event_id=nft_data['event_id'],
+        compatibility_score=float(nft_data['compatibility_score']),
+        timestamp=nft_data['timestamp']
+    )

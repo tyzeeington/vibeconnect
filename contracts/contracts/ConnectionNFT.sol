@@ -4,7 +4,6 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
 
 /**
  * @title ConnectionNFT
@@ -12,8 +11,7 @@ import "@openzeppelin/contracts/utils/Counters.sol";
  * Both users co-own the connection memory
  */
 contract ConnectionNFT is ERC721, ERC721URIStorage, Ownable {
-    using Counters for Counters.Counter;
-    Counters.Counter private _tokenIds;
+    uint256 private _tokenIds;
     
     struct Connection {
         address userA;
@@ -55,9 +53,9 @@ contract ConnectionNFT is ERC721, ERC721URIStorage, Ownable {
         returns (uint256) 
     {
         require(userA != userB, "Cannot connect to yourself");
-        
-        _tokenIds.increment();
-        uint256 newTokenId = _tokenIds.current();
+
+        _tokenIds++;
+        uint256 newTokenId = _tokenIds;
         
         // Mint to userA (primary holder)
         _safeMint(userA, newTokenId);
