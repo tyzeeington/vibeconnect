@@ -110,7 +110,9 @@ class Match(Base):
     
     # Status
     status = Column(SQLEnum(MatchStatus), default=MatchStatus.PENDING)
-    
+    user_a_accepted = Column(Boolean, nullable=True)  # None = not responded, True = accepted, False = rejected
+    user_b_accepted = Column(Boolean, nullable=True)  # None = not responded, True = accepted, False = rejected
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     user_a_responded_at = Column(DateTime, nullable=True)
