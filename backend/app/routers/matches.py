@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from pydantic import BaseModel
 from typing import List, Dict
 from datetime import datetime
@@ -7,13 +8,6 @@ from datetime import datetime
 from app.database import get_db
 from app.models import Match, MatchStatus, Connection, User, Event
 from app.services.web3_service import web3_service
-from pydantic import BaseModel
-from typing import List, Dict
-from sqlalchemy.orm import Session
-from sqlalchemy import or_
-
-from ..database import get_db
-from ..models import Match, User, Event, MatchStatus
 
 router = APIRouter()
 
