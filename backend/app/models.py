@@ -51,9 +51,14 @@ class UserProfile(Base):
     # Metadata
     bio = Column(String, nullable=True)
     interests = Column(JSON, default=list)
+
+    # Social Profiles (connection-only visibility)
+    social_profiles = Column(JSON, default=dict)  # {"instagram": "@handle", "twitter": "@handle", etc.}
+    social_visibility = Column(String, default="connection_only")  # "public" or "connection_only"
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Relationship
     user = relationship("User", back_populates="profile")
 
@@ -115,9 +120,10 @@ class Match(Base):
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)  # 72 hours after event checkout
     user_a_responded_at = Column(DateTime, nullable=True)
     user_b_responded_at = Column(DateTime, nullable=True)
-    
+
     # Relationships
     event = relationship("Event", back_populates="matches")
     user_a = relationship("User", foreign_keys=[user_a_id], back_populates="sent_matches")

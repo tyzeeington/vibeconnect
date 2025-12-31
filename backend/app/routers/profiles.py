@@ -24,6 +24,10 @@ class ProfileUpdate(BaseModel):
     bio: str | None = None
     interests: List[str] | None = None
 
+class SocialProfilesUpdate(BaseModel):
+    social_profiles: Dict[str, str]  # {"instagram": "@handle", "twitter": "@handle", etc.}
+    social_visibility: str = "connection_only"  # "public" or "connection_only"
+
 class ProfileResponse(BaseModel):
     id: int
     wallet_address: str
@@ -239,3 +243,105 @@ async def get_user_profile(
         total_connections=profile.total_connections,
         profile_confidence=profile.profile_confidence
     )
+
+@router.put("/socials")
+async def update_social_profiles(
+    wallet_address: str,  # In production, get this from JWT token
+    socials: SocialProfilesUpdate,
+    db: Session = Depends(get_db)
+):
+    """
+    Update user's social media profiles
+    """
+    user = db.query(User).filter(User.wallet_address == wallet_address).first()
+
+    if not user or not user.profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile not found"
+        )
+
+    profile = user.profile
+
+    # Validate visibility setting
+    if socials.social_visibility not in ["public", "connection_only"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="social_visibility must be 'public' or 'connection_only'"
+        )
+
+    # Update social profiles
+    profile.social_profiles = socials.social_profiles
+    profile.social_visibility = socials.social_visibility
+
+    db.commit()
+    db.refresh(profile)
+
+    return {
+        "success": True,
+        "social_profiles": profile.social_profiles,
+        "social_visibility": profile.social_visibility
+    }
+
+@router.get("/socials/{wallet_address}")
+async def get_social_profiles(
+    wallet_address: str,
+    requester_address: str,  # Who is requesting? In production, from JWT
+    db: Session = Depends(get_db)
+):
+    """
+    Get user's social profiles (respecting visibility settings)
+    Returns social profiles only if:
+    1. Visibility is public, OR
+    2. Requester has an accepted connection with this user
+    """
+    user = db.query(User).filter(User.wallet_address == wallet_address).first()
+
+    if not user or not user.profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile not found"
+        )
+
+    profile = user.profile
+
+    # Check visibility
+    if profile.social_visibility == "public":
+        return {
+            "social_profiles": profile.social_profiles,
+            "visibility": "public"
+        }
+
+    # Check if requester has accepted connection
+    from app.models import Connection
+    requester = db.query(User).filter(User.wallet_address == requester_address).first()
+    
+    if not requester:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Requester not found"
+        )
+    
+    connection = db.query(Connection).filter(
+        (
+            (Connection.user_a_id == user.id) &
+            (Connection.user_b_id == requester.id)
+        ) | (
+            (Connection.user_b_id == user.id) &
+            (Connection.user_a_id == requester.id)
+        )
+    ).first()
+
+    if connection:
+        return {
+            "social_profiles": profile.social_profiles,
+            "visibility": "connection_only",
+            "unlocked": True
+        }
+
+    return {
+        "social_profiles": {},
+        "visibility": "connection_only",
+        "unlocked": False,
+        "message": "Connect with this user to unlock their social profiles"
+    }
