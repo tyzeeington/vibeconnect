@@ -1,5 +1,6 @@
 from web3 import Web3
 from eth_account import Account
+from eth_account.messages import encode_defunct
 from app.config import settings
 from typing import Dict, Optional, List
 import json
@@ -44,21 +45,26 @@ class Web3Service:
     def verify_wallet_signature(self, wallet_address: str, signature: str, message: str) -> bool:
         """
         Verify that a user owns their wallet address
-        
+
         Args:
             wallet_address: The wallet address to verify
             signature: The signature provided by the user
             message: The message that was signed
-            
+
         Returns:
             True if signature is valid
         """
         try:
-            message_hash = self.w3.keccak(text=message)
+            # Encode message according to EIP-191 standard
+            encoded_message = encode_defunct(text=message)
+
+            # Recover the address that signed the message
             recovered_address = self.w3.eth.account.recover_message(
-                message_hash,
+                encoded_message,
                 signature=signature
             )
+
+            # Compare addresses (case-insensitive)
             return recovered_address.lower() == wallet_address.lower()
         except Exception as e:
             print(f"Signature verification error: {e}")
