@@ -4,7 +4,6 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
 
 /**
  * @title ProfileNFT
@@ -12,8 +11,7 @@ import "@openzeppelin/contracts/utils/Counters.sol";
  * Each user gets one profile NFT that they own and control
  */
 contract ProfileNFT is ERC721, ERC721URIStorage, Ownable {
-    using Counters for Counters.Counter;
-    Counters.Counter private _tokenIds;
+    uint256 private _tokenIds;
     
     // Mapping from wallet address to profile token ID
     mapping(address => uint256) public userProfiles;
@@ -36,9 +34,9 @@ contract ProfileNFT is ERC721, ERC721URIStorage, Ownable {
         returns (uint256) 
     {
         require(userProfiles[to] == 0, "User already has a profile");
-        
-        _tokenIds.increment();
-        uint256 newTokenId = _tokenIds.current();
+
+        _tokenIds++;
+        uint256 newTokenId = _tokenIds;
         
         _safeMint(to, newTokenId);
         _setTokenURI(newTokenId, metadataURI);

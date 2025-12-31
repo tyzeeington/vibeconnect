@@ -6,6 +6,7 @@ from sqlalchemy import or_
 
 from app.database import get_db
 from app.models import Connection, User, Event, Match
+from app.services.web3_service import web3_service
 
 router = APIRouter()
 
@@ -67,7 +68,7 @@ async def get_my_connections(
         event = db.query(Event).filter(Event.id == conn.event_id).first()
 
         # Get compatibility score from the match
-        match = db.query(Match).filter(Match.id == conn.match_id).first()
+        match = db.query(Match).filter(Match.id == conn.match_id).first() if conn.match_id else None
         compatibility_score = match.compatibility_score if match else 0.0
 
         result.append(ConnectionResponse(
@@ -85,9 +86,36 @@ async def get_my_connections(
     return result
 
 @router.get("/{connection_id}/nft", response_model=NFTMetadata)
-async def get_connection_nft(connection_id: int):
+async def get_connection_nft(
+    connection_id: int,
+    db: Session = Depends(get_db)
+):
     """
-    Get NFT metadata for a connection
+    Get NFT metadata for a connection by querying on-chain data
     """
-    # TODO: Query connection and fetch on-chain data
-    return None
+    # Query connection from database
+    connection = db.query(Connection).filter(Connection.id == connection_id).first()
+    if not connection:
+        raise HTTPException(status_code=404, detail="Connection not found")
+
+    # Check if connection has an NFT
+    if not connection.connection_nft_id:
+        raise HTTPException(status_code=404, detail="Connection does not have an NFT yet")
+
+    # Fetch on-chain data
+    nft_data = await web3_service.get_connection_nft_data(connection.connection_nft_id)
+    if not nft_data:
+        raise HTTPException(status_code=500, detail="Failed to fetch on-chain NFT data")
+
+    # Get event details
+    event = db.query(Event).filter(Event.id == connection.event_id).first()
+
+    return NFTMetadata(
+        token_id=nft_data['token_id'],
+        metadata_uri=nft_data.get('metadata_uri', ''),
+        user_a=nft_data['user_a'],
+        user_b=nft_data['user_b'],
+        event_id=nft_data['event_id'],
+        compatibility_score=float(nft_data['compatibility_score']),
+        timestamp=nft_data['timestamp']
+    )
