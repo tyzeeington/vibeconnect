@@ -48,6 +48,12 @@ export default function Home() {
               >
                 Find Events
               </Link>
+              <Link
+                href="/connections"
+                className="inline-block bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg transition"
+              >
+                Connections 🔗
+              </Link>
             </div>
           ) : (
             <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 max-w-md mx-auto border border-white/20">
