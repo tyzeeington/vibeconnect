@@ -8,8 +8,8 @@ class Settings(BaseSettings):
     # OpenAI
     OPENAI_API_KEY: str
 
-    # Polygon/Web3
-    POLYGON_RPC_URL: str
+    # Base/Web3
+    BASE_RPC_URL: str
     PRIVATE_KEY: Optional[str] = None
     PROFILE_NFT_CONTRACT: Optional[str] = None
     CONNECTION_NFT_CONTRACT: Optional[str] = None
