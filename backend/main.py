@@ -21,7 +21,11 @@ app = FastAPI(
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure this properly in production
+    allow_origins=[
+        "https://vibeconnect.vercel.app",
+        "https://vibeconnect-*.vercel.app",  # Allow all Vercel preview deployments
+        "http://localhost:3000",  # Keep for local development
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
