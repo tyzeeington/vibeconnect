@@ -1,0 +1,76 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Railway (Staging)
+        run: |
+          # Railway CLI auto-deploys on push
+          # This is a placeholder for manual deployment if needed
+          echo "Backend deployed to Railway staging environment"
+          echo "Environment: staging"
+          echo "Commit: ${{ github.sha }}"
+
+      - name: Run database migrations
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: |
+          cd backend
+          # Add migration command here when migrations are set up
+          echo "Migrations would run here"
+
+      - name: Health check
+        run: |
+          sleep 10
+          curl -f ${{ secrets.STAGING_API_URL }}/health || exit 1
+
+      - name: Notify deployment
+        if: success()
+        run: |
+          echo "✅ Staging backend deployed successfully"
+          echo "URL: ${{ secrets.STAGING_API_URL }}"
+
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Vercel (Staging)
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./frontend
+          scope: ${{ secrets.VERCEL_ORG_ID }}
+
+      - name: Notify deployment
+        if: success()
+        run: |
+          echo "✅ Staging frontend deployed successfully"
+
+  run-smoke-tests:
+    needs: [deploy-backend, deploy-frontend]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run smoke tests
+        run: |
+          # Add smoke test commands here
+          curl -f ${{ secrets.STAGING_API_URL }}/health
+          curl -f ${{ secrets.STAGING_FRONTEND_URL }}
+          echo "✅ Smoke tests passed"

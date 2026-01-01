@@ -28,9 +28,9 @@ class Web3Service:
         self.pesobytes_address = settings.PESOBYTES_CONTRACT
 
         # Load ABIs
-        self.profile_nft_abi = None
+        self.profile_nft_abi = self._load_abi('ProfileNFT.json')
         self.connection_nft_abi = self._load_abi('ConnectionNFT.json')
-        self.pesobytes_abi = None
+        self.pesobytes_abi = self._load_abi('PesoBytes.json')
 
     def _load_abi(self, filename: str):
         """Load ABI from JSON file"""
@@ -127,17 +127,19 @@ class Web3Service:
         user_a_address: str,
         user_b_address: str,
         event_id: str,
-        metadata_uri: str
+        metadata_uri: str,
+        compatibility_score: int
     ) -> Optional[Dict]:
         """
         Mint a connection NFT when two users connect
-        
+
         Args:
             user_a_address: First user's wallet
             user_b_address: Second user's wallet
             event_id: Event where they connected
             metadata_uri: IPFS URI with connection memory data
-            
+            compatibility_score: Compatibility score (0-100)
+
         Returns:
             Transaction receipt with NFT token ID
         """
@@ -155,7 +157,8 @@ class Web3Service:
                 user_a_address,
                 user_b_address,
                 event_id,
-                metadata_uri
+                metadata_uri,
+                compatibility_score
             ).build_transaction({
                 'from': self.account.address,
                 'nonce': self.w3.eth.get_transaction_count(self.account.address),
@@ -220,6 +223,55 @@ class Web3Service:
             
         except Exception as e:
             print(f"Error awarding PesoBytes: {e}")
+            return None
+
+    async def award_connection_pesobytes(
+        self,
+        user_a_address: str,
+        user_b_address: str,
+        compatibility_score: int
+    ) -> Optional[str]:
+        """
+        Award PesoBytes tokens to both users for making a connection
+        Uses the contract's awardConnectionReward() method which automatically
+        applies high-quality bonuses for compatibility scores >= 90
+
+        Args:
+            user_a_address: First user's wallet address
+            user_b_address: Second user's wallet address
+            compatibility_score: Compatibility score (0-100)
+
+        Returns:
+            Transaction hash
+        """
+        if not self.pesobytes_address or not self.pesobytes_abi:
+            print("PesoBytes contract not configured")
+            return None
+
+        try:
+            contract = self.w3.eth.contract(
+                address=self.pesobytes_address,
+                abi=self.pesobytes_abi
+            )
+
+            txn = contract.functions.awardConnectionReward(
+                user_a_address,
+                user_b_address,
+                compatibility_score
+            ).build_transaction({
+                'from': self.account.address,
+                'nonce': self.w3.eth.get_transaction_count(self.account.address),
+                'gas': 150000,
+                'gasPrice': self.w3.eth.gas_price
+            })
+
+            signed_txn = self.w3.eth.account.sign_transaction(txn, self.account.key)
+            tx_hash = self.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+
+            return tx_hash.hex()
+
+        except Exception as e:
+            print(f"Error awarding connection PesoBytes: {e}")
             return None
 
     async def get_connection_nft_data(self, token_id: int) -> Optional[Dict]:

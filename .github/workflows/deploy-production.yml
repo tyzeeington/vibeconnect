@@ -1,0 +1,125 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to confirm production deployment'
+        required: true
+
+jobs:
+  validate-deployment:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Validate confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "deploy" ]; then
+            echo "Deployment not confirmed. Exiting."
+            exit 1
+          fi
+
+  deploy-backend:
+    runs-on: ubuntu-latest
+    environment: production
+    needs: [validate-deployment]
+    if: always() && (needs.validate-deployment.result == 'success' || github.event_name == 'push')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create deployment notification
+        run: |
+          echo "🚀 Starting production deployment"
+          echo "Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref }}"
+
+      - name: Deploy to Railway (Production)
+        run: |
+          echo "Backend deployed to Railway production environment"
+          # Railway auto-deploys main branch
+
+      - name: Run database migrations
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: |
+          cd backend
+          # Add production migration command with backup
+          echo "Production migrations would run here"
+
+      - name: Health check
+        run: |
+          sleep 15
+          max_attempts=5
+          attempt=1
+          while [ $attempt -le $max_attempts ]; do
+            if curl -f ${{ secrets.PRODUCTION_API_URL }}/health; then
+              echo "✅ Health check passed"
+              exit 0
+            fi
+            echo "Attempt $attempt failed, retrying..."
+            sleep 5
+            attempt=$((attempt + 1))
+          done
+          exit 1
+
+      - name: Smoke test critical endpoints
+        run: |
+          # Test critical API endpoints
+          curl -f ${{ secrets.PRODUCTION_API_URL }}/ || exit 1
+          curl -f ${{ secrets.PRODUCTION_API_URL }}/health || exit 1
+          echo "✅ Critical endpoints responding"
+
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    environment: production
+    needs: [deploy-backend]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Vercel (Production)
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
+          working-directory: ./frontend
+          scope: ${{ secrets.VERCEL_ORG_ID }}
+
+      - name: Test production frontend
+        run: |
+          sleep 10
+          curl -f ${{ secrets.PRODUCTION_FRONTEND_URL }} || exit 1
+          echo "✅ Frontend accessible"
+
+  post-deployment:
+    needs: [deploy-backend, deploy-frontend]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send success notification
+        run: |
+          echo "✅ Production deployment completed successfully!"
+          echo "Backend: ${{ secrets.PRODUCTION_API_URL }}"
+          echo "Frontend: ${{ secrets.PRODUCTION_FRONTEND_URL }}"
+          echo "Commit: ${{ github.sha }}"
+
+      - name: Create GitHub release
+        if: github.event_name == 'push'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.run_number }}
+          release_name: Release v${{ github.run_number }}
+          body: |
+            Production deployment ${{ github.sha }}
+
+            Deployed on: ${{ github.event.head_commit.timestamp }}
+            Deployed by: ${{ github.actor }}
+          draft: false
+          prerelease: false

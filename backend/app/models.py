@@ -10,6 +10,7 @@ class MatchStatus(enum.Enum):
     PENDING = "pending"
     ACCEPTED = "accepted"
     REJECTED = "rejected"
+    EXPIRED = "expired"
 
 class User(Base):
     __tablename__ = "users"

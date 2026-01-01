@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel
 from typing import List
 from sqlalchemy.orm import Session
@@ -7,6 +7,9 @@ from sqlalchemy import or_
 from app.database import get_db
 from app.models import Connection, User, Event, Match
 from app.services.web3_service import web3_service
+from app.middleware.security import limiter
+from app.dependencies import get_current_user
+from app.utils.validation import validate_wallet_address
 
 router = APIRouter()
 
@@ -31,7 +34,9 @@ class NFTMetadata(BaseModel):
     timestamp: int
 
 @router.get("/", response_model=List[ConnectionResponse])
+@limiter.limit("100/hour")
 async def get_my_connections(
+    request: Request,
     wallet_address: str,
     db: Session = Depends(get_db)
 ):
@@ -86,7 +91,9 @@ async def get_my_connections(
     return result
 
 @router.get("/{connection_id}/nft", response_model=NFTMetadata)
+@limiter.limit("100/hour")
 async def get_connection_nft(
+    request: Request,
     connection_id: int,
     db: Session = Depends(get_db)
 ):

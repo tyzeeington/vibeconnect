@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: vibeconnect-db
+    environment:
+      POSTGRES_USER: vibeconnect
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-vibeconnect_dev}
+      POSTGRES_DB: vibeconnect
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vibeconnect"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vibeconnect-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: vibeconnect-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vibeconnect-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: vibeconnect-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://vibeconnect:${DB_PASSWORD:-vibeconnect_dev}@postgres:5432/vibeconnect
+      REDIS_URL: redis://redis:6379
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      BASE_RPC_URL: ${BASE_RPC_URL}
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      PRIVATE_KEY: ${PRIVATE_KEY}
+      PROFILE_NFT_CONTRACT: ${PROFILE_NFT_CONTRACT}
+      CONNECTION_NFT_CONTRACT: ${CONNECTION_NFT_CONTRACT}
+      PESOBYTES_CONTRACT: ${PESOBYTES_CONTRACT}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    networks:
+      - vibeconnect-network
+    restart: unless-stopped
+
+  # Frontend (Next.js)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID}
+    container_name: vibeconnect-frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - vibeconnect-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  vibeconnect-network:
+    driver: bridge
