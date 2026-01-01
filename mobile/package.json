@@ -9,11 +9,15 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "^2.1.0",
+    "@walletconnect/core": "^2.23.1",
     "@walletconnect/react-native-compat": "^2.23.1",
+    "@walletconnect/utils": "^2.23.1",
     "@walletconnect/web3wallet": "^1.16.1",
     "axios": "^1.13.2",
     "expo": "~54.0.30",
     "expo-application": "^7.0.8",
+    "expo-constants": "~18.0.7",
     "expo-crypto": "^15.0.8",
     "expo-location": "^19.0.8",
     "expo-status-bar": "~3.0.9",

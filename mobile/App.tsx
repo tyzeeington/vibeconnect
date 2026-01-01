@@ -1,30 +1,28 @@
 import '@walletconnect/react-native-compat';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
-import { useState } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, ScrollView, ActivityIndicator } from 'react-native';
 import Constants from 'expo-constants';
+import { WalletProvider, useWallet } from './src/context/WalletContext';
 
 const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:8000';
 
-export default function App() {
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+function AppContent() {
+  const { walletAddress, isConnecting, connectWallet, disconnectWallet } = useWallet();
 
-  const connectWallet = async () => {
-    // WalletConnect integration will go here
-    // For now, simulating connection
-    setWalletAddress('0x742d...4E89');
+  const formatAddress = (address: string) => {
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.logo}>VibeConnect 💜</Text>
           {walletAddress && (
-            <View style={styles.walletBadge}>
-              <Text style={styles.walletText}>{walletAddress}</Text>
-            </View>
+            <TouchableOpacity style={styles.walletBadge} onPress={disconnectWallet}>
+              <Text style={styles.walletText}>{formatAddress(walletAddress)}</Text>
+            </TouchableOpacity>
           )}
         </View>
 
@@ -39,8 +37,16 @@ export default function App() {
           </Text>
 
           {!walletAddress ? (
-            <TouchableOpacity style={styles.connectButton} onPress={connectWallet}>
-              <Text style={styles.connectButtonText}>Connect Wallet</Text>
+            <TouchableOpacity
+              style={styles.connectButton}
+              onPress={connectWallet}
+              disabled={isConnecting}
+            >
+              {isConnecting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.connectButtonText}>Connect Wallet</Text>
+              )}
             </TouchableOpacity>
           ) : (
             <View style={styles.actionsContainer}>
@@ -97,6 +103,14 @@ export default function App() {
   );
 }
 
+export default function App() {
+  return (
+    <WalletProvider>
+      <AppContent />
+    </WalletProvider>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -104,6 +118,8 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  scrollContent: {
     padding: 20,
   },
   header: {

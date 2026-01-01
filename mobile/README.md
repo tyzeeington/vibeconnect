@@ -23,12 +23,13 @@ npm run web
 
 ## Features
 
-- **Wallet Connection**: WalletConnect v2 integration
+- **Wallet Connection**: WalletConnect v2 integration with persistent sessions
 - **Event Check-in**: Camera & location access for QR code scanning
 - **Proximity Matching**: Background location tracking during events
 - **AI Profile**: Same conversational onboarding as web
+- **Social Profiles**: Aggregate Instagram, Twitter, LinkedIn, Spotify (unlocked after connection)
 - **Push Notifications**: Connection requests & match notifications
-- **Offline Mode**: Cache data for offline viewing
+- **Offline Mode**: Cache data for offline viewing with AsyncStorage
 
 ## Development
 
@@ -68,15 +69,19 @@ npx eas submit --platform android
 
 ```
 mobile/
-├── App.tsx                 # Main entry point
-├── app.json               # Expo configuration
-├── assets/                # Images, fonts, icons
+├── App.tsx                        # Main entry point with WalletProvider
+├── app.json                       # Expo configuration
+├── assets/                        # Images, fonts, icons
 ├── src/
-│   ├── screens/          # App screens
-│   ├── components/       # Reusable components
-│   ├── services/         # API & wallet services
-│   ├── hooks/            # Custom React hooks
-│   └── navigation/       # Navigation setup
+│   ├── context/
+│   │   └── WalletContext.tsx     # Wallet state management
+│   ├── services/
+│   │   ├── api.ts                # Backend API client
+│   │   └── walletConnect.ts      # WalletConnect v2 service
+│   ├── screens/                  # App screens (to be added)
+│   ├── components/               # Reusable components (to be added)
+│   ├── hooks/                    # Custom React hooks (to be added)
+│   └── navigation/               # Navigation setup (to be added)
 ```
 
 ## API Integration
@@ -91,26 +96,46 @@ Configuration in `app.json` under `extra`:
 - `apiUrl`: Backend API URL
 - `walletConnectProjectId`: WalletConnect Project ID
 
+## Wallet Integration
+
+The app uses WalletConnect v2 for wallet connections:
+
+- **WalletContext**: React context for managing wallet state
+- **Session Persistence**: AsyncStorage keeps users logged in
+- **Auto-reconnect**: Restores wallet session on app launch
+- **Current State**: Simulated connection for development (tap "Connect Wallet")
+
+To enable real wallet connections:
+1. Implement QR code scanner for WalletConnect URI
+2. Or use deep linking to connect with mobile wallets
+3. Handle signing requests for NFT minting
+
 ## Next Steps
 
-- [ ] Implement full WalletConnect integration
+- [x] WalletConnect integration (simulated)
+- [x] Backend API client
+- [x] Wallet session persistence
 - [ ] Add navigation (React Navigation)
+- [ ] Build profile creation screen
 - [ ] Build event check-in with QR scanner
 - [ ] Implement push notifications
 - [ ] Add location-based matching
-- [ ] Build connections feed
+- [ ] Build connections feed screen
+- [ ] Add social profiles management
 - [ ] Add NFT viewing
-- [ ] Implement $PESO wallet
+- [ ] Implement $PESO wallet display
 
 ## Tech Stack
 
-- **Framework**: Expo SDK 52
+- **Framework**: Expo SDK 54
 - **Language**: TypeScript
-- **Wallet**: WalletConnect v2
+- **Wallet**: WalletConnect v2 (@walletconnect/web3wallet, @walletconnect/core)
+- **Storage**: AsyncStorage for session persistence
 - **Location**: expo-location
-- **Camera**: expo-camera
+- **Camera**: expo-camera (to be added)
 - **Networking**: axios
 - **Navigation**: React Navigation (to be added)
+- **State Management**: React Context API
 
 ## License
 
