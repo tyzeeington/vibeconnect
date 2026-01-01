@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "VibeConnect",
+    "slug": "vibeconnect",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "scheme": "vibeconnect",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f172a"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vibeconnect.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "VibeConnect needs camera access to scan QR codes for event check-in",
+        "NSLocationWhenInUseUsageDescription": "VibeConnect uses your location to match you with nearby attendees at events"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#9333ea"
+      },
+      "package": "com.vibeconnect.app",
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ],
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-location"
+    ],
+    "extra": {
+      "apiUrl": "https://vibeconnect-production.up.railway.app",
+      "walletConnectProjectId": "a3daa77487c8eb6cc5f861ef4d01f6fa"
+    }
+  }
+}
