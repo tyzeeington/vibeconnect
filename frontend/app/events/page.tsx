@@ -122,19 +122,27 @@ export default function EventsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black">
       {/* Navigation */}
-      <nav className="flex justify-between items-center p-6">
-        <Link href="/" className="text-2xl font-bold text-white">
-          VibeConnect 💜
-        </Link>
-        <div className="flex items-center gap-4">
-          <Link
-            href="/profile"
-            className="text-white hover:text-purple-300 transition"
-          >
-            Profile
+      <nav className="flex justify-between items-center p-6 border-b border-white/10">
+        <div className="flex items-center space-x-8">
+          <Link href="/" className="text-2xl font-bold text-white">
+            VibeConnect 💜
           </Link>
-          <ConnectButton />
+          <div className="hidden md:flex space-x-6">
+            <Link href="/events" className="text-purple-400 font-semibold">
+              Events
+            </Link>
+            <Link href="/profile" className="text-gray-300 hover:text-white transition">
+              Profile
+            </Link>
+            <Link href="/connections" className="text-gray-300 hover:text-white transition">
+              Connections
+            </Link>
+            <Link href="/profile/social" className="text-gray-300 hover:text-white transition">
+              Social Profiles
+            </Link>
+          </div>
         </div>
+        <ConnectButton />
       </nav>
 
       {/* Header */}

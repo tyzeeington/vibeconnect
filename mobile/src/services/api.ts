@@ -37,6 +37,71 @@ export interface Connection {
   created_at: string;
 }
 
+// Chat endpoints for profile creation
+export interface ChatStartResponse {
+  session_id: string;
+  message: string;
+  current_dimension: string;
+  dimension_index: number;
+  total_dimensions: number;
+  is_complete: boolean;
+  progress_percentage: number;
+}
+
+export interface ChatMessageResponse {
+  session_id: string;
+  message: string;
+  current_dimension: string | null;
+  dimension_index: number;
+  total_dimensions: number;
+  is_complete: boolean;
+  progress_percentage: number;
+}
+
+export interface ProfileCreatedResponse {
+  success: boolean;
+  profile_id: number;
+  dimensions: Record<string, number>;
+  intentions: string[];
+  insights: string;
+}
+
+export const startChatSession = async (walletAddress: string): Promise<ChatStartResponse> => {
+  const response = await api.post('/api/chat/start', {
+    wallet_address: walletAddress,
+  });
+  return response.data;
+};
+
+export const sendChatMessage = async (
+  walletAddress: string,
+  sessionId: string,
+  message: string
+): Promise<ChatMessageResponse> => {
+  const response = await api.post('/api/chat/message', {
+    wallet_address: walletAddress,
+    session_id: sessionId,
+    message: message,
+  });
+  return response.data;
+};
+
+export const completeChatSession = async (
+  walletAddress: string,
+  sessionId: string
+): Promise<ProfileCreatedResponse> => {
+  const response = await api.post('/api/chat/complete', {
+    wallet_address: walletAddress,
+    session_id: sessionId,
+  });
+  return response.data;
+};
+
+export const deleteChatSession = async (walletAddress: string, sessionId: string) => {
+  const response = await api.delete(`/api/chat/session/${sessionId}?wallet_address=${walletAddress}`);
+  return response.data;
+};
+
 // Profile endpoints
 export const createProfile = async (walletAddress: string, personalityTraits: any) => {
   const response = await api.post('/profiles/', {

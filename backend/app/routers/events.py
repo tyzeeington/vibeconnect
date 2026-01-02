@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel
 from typing import List
 from sqlalchemy.orm import Session
@@ -7,6 +7,8 @@ import math
 
 from app.database import get_db
 from app.models import Event, EventCheckIn, User
+from app.middleware.security import limiter
+from app.utils.validation import validate_coordinates, validate_event_id
 
 router = APIRouter()
 
@@ -46,12 +48,17 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     return R * c
 
 @router.post("/checkin")
-async def check_in(request: CheckInRequest, db: Session = Depends(get_db)):
+@limiter.limit("60/hour")
+async def check_in(req: Request, request: CheckInRequest, db: Session = Depends(get_db)):
     """
     Check into an event
 
     Creates the event if it doesn't exist and records the user's check-in
     """
+    # Validate inputs
+    validated_event_id = validate_event_id(request.event_id)
+    validate_coordinates(request.latitude, request.longitude)
+
     # Verify user exists
     user = db.query(User).filter(User.id == request.user_id).first()
     if not user:
@@ -104,7 +111,8 @@ async def check_in(request: CheckInRequest, db: Session = Depends(get_db)):
     }
 
 @router.post("/checkout")
-async def check_out(request: CheckOutRequest, db: Session = Depends(get_db)):
+@limiter.limit("60/hour")
+async def check_out(req: Request, request: CheckOutRequest, db: Session = Depends(get_db)):
     """
     Check out of an event
     Updates the check-in record with the current checkout time
@@ -144,7 +152,9 @@ async def check_out(request: CheckOutRequest, db: Session = Depends(get_db)):
     }
 
 @router.get("/active", response_model=List[EventResponse])
+@limiter.limit("100/hour")
 async def get_active_events(
+    request: Request,
     latitude: float,
     longitude: float,
     radius_km: float = 5.0,
@@ -162,6 +172,9 @@ async def get_active_events(
     Returns:
         List of active events within the specified radius with attendee counts
     """
+    # Validate coordinates
+    validate_coordinates(latitude, longitude)
+
     # Query all events
     all_events = db.query(Event).all()
 
