@@ -13,3 +13,4 @@ python-dotenv>=1.0.0
 slowapi>=0.1.9
 redis>=5.0.0
 bleach>=6.1.0
+requests>=2.31.0

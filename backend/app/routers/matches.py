@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from app.database import get_db
 from app.models import Match, MatchStatus, Connection, User, Event, UserProfile
 from app.services.web3_service import web3_service
+from app.services.ipfs_service import ipfs_service
 from app.middleware.security import limiter
 from app.dependencies import get_current_user, get_optional_user
 from app.utils.validation import validate_wallet_address
@@ -218,10 +219,20 @@ async def respond_to_match(req: Request, request: RespondToMatchRequest, db: Ses
         db.commit()
         db.refresh(connection)
 
-        # Mint NFT (async operation)
-        # TODO: Generate metadata URI with connection details
-        metadata_uri = f"ipfs://connection-{connection.id}"  # Placeholder
+        # Generate and upload NFT metadata to IPFS
+        metadata = ipfs_service.generate_connection_metadata(
+            connection_id=connection.id,
+            user_a=user_a.wallet_address,
+            user_b=user_b.wallet_address,
+            event_name=event.venue_name,
+            compatibility_score=int(match.compatibility_score),
+            timestamp=connection.created_at.isoformat(),
+            dimension_alignment=match.dimension_alignment,
+            proximity_overlap_minutes=match.proximity_overlap_minutes
+        )
+        metadata_uri = ipfs_service.upload_metadata(metadata)
 
+        # Mint NFT (async operation)
         nft_result = await web3_service.mint_connection_nft(
             user_a_address=user_a.wallet_address,
             user_b_address=user_b.wallet_address,
