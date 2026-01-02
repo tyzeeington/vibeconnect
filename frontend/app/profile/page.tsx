@@ -5,6 +5,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
 import Link from 'next/link';
 import axios from 'axios';
+import ProfilePictureUpload from '../components/ProfilePictureUpload';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -21,10 +22,13 @@ export default function ProfilePage() {
   const { isConnected, address } = useAccount();
   const [socialProfiles, setSocialProfiles] = useState<SocialProfiles>({});
   const [socialVisibility, setSocialVisibility] = useState<string>('connection_only');
+  const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
+  const [showPictureUpload, setShowPictureUpload] = useState(false);
 
   useEffect(() => {
     if (isConnected && address) {
       fetchSocialProfiles();
+      fetchProfilePicture();
     }
   }, [isConnected, address]);
 
@@ -49,6 +53,31 @@ export default function ProfilePage() {
     } catch (error) {
       console.error('Error fetching social profiles:', error);
     }
+  };
+
+  const fetchProfilePicture = async () => {
+    if (!address) return;
+
+    try {
+      const response = await axios.get(
+        `${API_URL}/api/profiles/picture/${address}`
+      );
+
+      if (response.data.has_picture && response.data.url) {
+        setProfilePictureUrl(response.data.url);
+      }
+    } catch (error) {
+      console.error('Error fetching profile picture:', error);
+    }
+  };
+
+  const handleUploadSuccess = (url: string, cid: string) => {
+    setProfilePictureUrl(url);
+    setShowPictureUpload(false);
+  };
+
+  const handleDeleteSuccess = () => {
+    setProfilePictureUrl(null);
   };
 
   // Mock profile data - will connect to backend later
@@ -160,17 +189,28 @@ export default function ProfilePage() {
           <div className="flex items-start justify-between mb-6">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-2xl">
-                  👤
-                </div>
+                {profilePictureUrl ? (
+                  <img
+                    src={profilePictureUrl}
+                    alt="Profile"
+                    className="w-16 h-16 rounded-full object-cover border-2 border-purple-500"
+                  />
+                ) : (
+                  <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-2xl">
+                    👤
+                  </div>
+                )}
                 <div>
                   <h1 className="text-3xl font-bold text-white">{mockProfile.username}</h1>
                   <p className="text-gray-300 text-sm">{address}</p>
                 </div>
               </div>
             </div>
-            <button className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition text-sm">
-              Edit Profile
+            <button
+              onClick={() => setShowPictureUpload(!showPictureUpload)}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition text-sm"
+            >
+              {showPictureUpload ? 'Hide Upload' : 'Edit Picture'}
             </button>
           </div>
 
@@ -194,6 +234,16 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+
+        {/* Profile Picture Upload Section */}
+        {showPictureUpload && address && (
+          <ProfilePictureUpload
+            currentPictureUrl={profilePictureUrl}
+            walletAddress={address}
+            onUploadSuccess={handleUploadSuccess}
+            onDeleteSuccess={handleDeleteSuccess}
+          />
+        )}
 
         {/* 5 Dimensions */}
         <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20 mb-6">

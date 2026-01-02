@@ -7,10 +7,13 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import type { BarcodeScanningResult } from 'expo-camera';
 import { checkIn } from '../services/api';
 import { useWallet } from '../context/WalletContext';
 import type { RootStackParamList } from '../navigation/AppNavigator';
@@ -24,27 +27,23 @@ export default function CheckInScreen() {
   const { walletAddress } = useWallet();
   const { eventId } = route.params;
 
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [permission, requestPermission] = useCameraPermissions();
   const [processing, setProcessing] = useState(false);
+  const [scanned, setScanned] = useState(false);
 
-  useEffect(() => {
-    // In a real implementation, we would request camera permissions here
-    // For now, we'll simulate the permission grant
-    setHasPermission(true);
-  }, []);
-
-  const handleManualCheckIn = async () => {
+  const handleCheckIn = async (scannedEventId: number) => {
     if (!walletAddress) {
       Alert.alert('Wallet Required', 'Please connect your wallet to check in');
+      setScanned(false);
       return;
     }
 
     try {
       setProcessing(true);
-      await checkIn(eventId, walletAddress);
+      await checkIn(scannedEventId, walletAddress);
       Alert.alert(
         'Success',
-        'You have successfully checked in!',
+        'You have successfully checked in to the event!',
         [
           {
             text: 'OK',
@@ -52,34 +51,133 @@ export default function CheckInScreen() {
           },
         ]
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Check-in failed:', error);
-      Alert.alert('Error', 'Failed to check in. Please try again.');
+      const errorMessage = error?.response?.data?.detail || 'Failed to check in. Please try again.';
+      Alert.alert('Check-in Failed', errorMessage, [
+        {
+          text: 'OK',
+          onPress: () => setScanned(false),
+        },
+      ]);
     } finally {
       setProcessing(false);
     }
   };
 
-  if (hasPermission === null) {
+  const handleManualCheckIn = async () => {
+    await handleCheckIn(eventId);
+  };
+
+  const handleBarCodeScanned = ({ data }: BarcodeScanningResult) => {
+    if (scanned || processing) {
+      return;
+    }
+
+    setScanned(true);
+
+    try {
+      // Try to parse the QR code data as JSON first (in case it's structured)
+      let scannedEventId: number | null = null;
+
+      try {
+        const parsed = JSON.parse(data);
+        if (parsed.eventId) {
+          scannedEventId = parseInt(parsed.eventId, 10);
+        } else if (parsed.event_id) {
+          scannedEventId = parseInt(parsed.event_id, 10);
+        }
+      } catch {
+        // If not JSON, try to parse as a plain number
+        const parsedNumber = parseInt(data, 10);
+        if (!isNaN(parsedNumber)) {
+          scannedEventId = parsedNumber;
+        }
+      }
+
+      if (scannedEventId === null || isNaN(scannedEventId)) {
+        Alert.alert(
+          'Invalid QR Code',
+          'This QR code does not contain a valid event ID. Please scan an event check-in QR code.',
+          [
+            {
+              text: 'OK',
+              onPress: () => setScanned(false),
+            },
+          ]
+        );
+        return;
+      }
+
+      // Proceed with check-in
+      handleCheckIn(scannedEventId);
+    } catch (error) {
+      console.error('Error parsing QR code:', error);
+      Alert.alert(
+        'Scan Error',
+        'Failed to read QR code. Please try again.',
+        [
+          {
+            text: 'OK',
+            onPress: () => setScanned(false),
+          },
+        ]
+      );
+    }
+  };
+
+  const handleOpenSettings = () => {
+    Linking.openSettings();
+  };
+
+  if (!permission) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContent}>
           <ActivityIndicator size="large" color="#9333ea" />
-          <Text style={styles.loadingText}>Requesting camera permission...</Text>
+          <Text style={styles.loadingText}>Loading camera...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  if (hasPermission === false) {
+  if (!permission.granted) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContent}>
           <Text style={styles.errorIcon}>📷</Text>
-          <Text style={styles.errorText}>Camera permission denied</Text>
+          <Text style={styles.errorText}>Camera Access Required</Text>
           <Text style={styles.errorSubtext}>
-            Please enable camera access in your device settings to scan QR codes
+            VibeConnect needs camera access to scan QR codes for event check-in
           </Text>
+
+          <TouchableOpacity
+            style={styles.permissionButton}
+            onPress={requestPermission}
+          >
+            <Text style={styles.permissionButtonText}>Grant Camera Access</Text>
+          </TouchableOpacity>
+
+          {permission.canAskAgain === false && (
+            <TouchableOpacity
+              style={[styles.permissionButton, styles.settingsButton]}
+              onPress={handleOpenSettings}
+            >
+              <Text style={styles.permissionButtonText}>Open Settings</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={[styles.manualButton, { marginTop: 24 }]}
+            onPress={handleManualCheckIn}
+            disabled={processing}
+          >
+            {processing ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.manualButtonText}>Manual Check-In Instead</Text>
+            )}
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -96,21 +194,37 @@ export default function CheckInScreen() {
           </Text>
         </View>
 
-        {/* QR Scanner Placeholder */}
+        {/* QR Scanner */}
         <View style={styles.scannerContainer}>
-          <View style={styles.scannerFrame}>
-            <View style={styles.cornerTopLeft} />
-            <View style={styles.cornerTopRight} />
-            <View style={styles.cornerBottomLeft} />
-            <View style={styles.cornerBottomRight} />
+          <View style={styles.cameraContainer}>
+            <CameraView
+              style={styles.camera}
+              facing="back"
+              barcodeScannerSettings={{
+                barcodeTypes: ['qr'],
+              }}
+              onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+            />
 
-            <Text style={styles.scannerText}>
-              Position QR code within frame
-            </Text>
+            <View style={styles.scannerOverlay}>
+              <View style={styles.scannerFrame}>
+                <View style={styles.cornerTopLeft} />
+                <View style={styles.cornerTopRight} />
+                <View style={styles.cornerBottomLeft} />
+                <View style={styles.cornerBottomRight} />
+              </View>
+            </View>
+
+            {scanned && (
+              <View style={styles.scanningOverlay}>
+                <ActivityIndicator size="large" color="#9333ea" />
+                <Text style={styles.scanningText}>Processing QR code...</Text>
+              </View>
+            )}
           </View>
 
           <Text style={styles.instructionText}>
-            QR scanner will be available when camera is ready
+            {scanned ? 'Processing...' : 'Position QR code within the frame'}
           </Text>
         </View>
 
@@ -195,12 +309,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 32,
   },
+  cameraContainer: {
+    width: 300,
+    height: 300,
+    borderRadius: 20,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  camera: {
+    flex: 1,
+  },
+  scannerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   scannerFrame: {
     width: 250,
     height: 250,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+  },
+  scanningOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scanningText: {
+    fontSize: 16,
+    color: '#fff',
+    marginTop: 12,
+    fontWeight: '600',
   },
   cornerTopLeft: {
     position: 'absolute',
@@ -246,11 +387,23 @@ const styles = StyleSheet.create({
     borderColor: '#9333ea',
     borderBottomRightRadius: 12,
   },
-  scannerText: {
-    fontSize: 14,
-    color: '#94a3b8',
-    textAlign: 'center',
-    paddingHorizontal: 20,
+  permissionButton: {
+    backgroundColor: '#9333ea',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 10,
+    marginTop: 24,
+    minWidth: 200,
+    alignItems: 'center',
+  },
+  permissionButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  settingsButton: {
+    backgroundColor: '#64748b',
+    marginTop: 12,
   },
   instructionText: {
     fontSize: 12,

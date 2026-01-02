@@ -57,6 +57,12 @@ class UserProfile(Base):
     social_profiles = Column(JSON, default=dict)  # {"instagram": "@handle", "twitter": "@handle", etc.}
     social_visibility = Column(String, default="connection_only")  # "public" or "connection_only"
 
+    # Profile Picture (stored on IPFS)
+    profile_picture_cid = Column(String, nullable=True)  # IPFS CID for profile picture
+
+    # Push Notifications
+    device_token = Column(String, nullable=True)  # FCM device token for push notifications
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

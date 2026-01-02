@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { walletConnectService } from '../services/walletConnect';
+import { updateDeviceToken } from '../services/api';
 
 interface WalletContextType {
   walletAddress: string | null;
@@ -11,7 +12,12 @@ interface WalletContextType {
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
-export function WalletProvider({ children }: { children: ReactNode }) {
+interface WalletProviderProps {
+  children: ReactNode;
+  pushToken?: string;
+}
+
+export function WalletProvider({ children, pushToken }: WalletProviderProps) {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
 
@@ -41,6 +47,17 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       // Initialize WalletConnect in background
       await walletConnectService.initialize();
+
+      // Send device token to backend if available
+      if (pushToken) {
+        try {
+          await updateDeviceToken(pushToken);
+          console.log('Device token registered with backend');
+        } catch (error) {
+          console.error('Failed to register device token:', error);
+          // Don't fail wallet connection if token update fails
+        }
+      }
 
       console.log('Wallet connected:', mockAddress);
     } catch (error) {
