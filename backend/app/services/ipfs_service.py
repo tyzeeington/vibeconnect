@@ -1,7 +1,9 @@
 import json
-from typing import Dict, Optional
+from typing import Dict, Optional, BinaryIO
 import logging
 import requests
+from io import BytesIO
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +25,7 @@ class IPFSService:
         self.pinata_api_key = pinata_api_key
         self.pinata_secret = pinata_secret
         self.pinata_url = "https://api.pinata.cloud/pinning/pinJSONToIPFS"
+        self.pinata_file_url = "https://api.pinata.cloud/pinning/pinFileToIPFS"
 
     def upload_metadata(self, metadata: Dict) -> str:
         """
@@ -207,6 +210,128 @@ class IPFSService:
         }
 
         return metadata
+
+    def upload_image(
+        self,
+        image_file: BinaryIO,
+        filename: str,
+        max_size_mb: int = 5,
+        max_dimension: int = 1024
+    ) -> Optional[str]:
+        """
+        Upload an image to IPFS via Pinata with validation and optimization.
+
+        Args:
+            image_file: Binary image file
+            filename: Original filename
+            max_size_mb: Maximum file size in MB (default 5MB)
+            max_dimension: Maximum width/height in pixels (default 1024px)
+
+        Returns:
+            IPFS CID if successful, None if upload fails
+
+        Raises:
+            ValueError: If image validation fails
+        """
+        try:
+            # Read image data
+            image_data = image_file.read()
+
+            # Validate file size
+            file_size_mb = len(image_data) / (1024 * 1024)
+            if file_size_mb > max_size_mb:
+                raise ValueError(f"Image size ({file_size_mb:.2f}MB) exceeds maximum allowed size ({max_size_mb}MB)")
+
+            # Open and validate image
+            try:
+                image = Image.open(BytesIO(image_data))
+            except Exception as e:
+                raise ValueError(f"Invalid image file: {str(e)}")
+
+            # Validate file format
+            if image.format not in ['JPEG', 'PNG']:
+                raise ValueError(f"Unsupported image format: {image.format}. Only JPEG and PNG are allowed.")
+
+            # Resize if necessary (maintain aspect ratio)
+            width, height = image.size
+            if width > max_dimension or height > max_dimension:
+                logger.info(f"Resizing image from {width}x{height}")
+
+                # Calculate new dimensions
+                if width > height:
+                    new_width = max_dimension
+                    new_height = int(height * (max_dimension / width))
+                else:
+                    new_height = max_dimension
+                    new_width = int(width * (max_dimension / height))
+
+                image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                logger.info(f"Resized to {new_width}x{new_height}")
+
+            # Convert to RGB if necessary (for PNG with transparency)
+            if image.mode in ('RGBA', 'LA', 'P'):
+                background = Image.new('RGB', image.size, (255, 255, 255))
+                if image.mode == 'P':
+                    image = image.convert('RGBA')
+                background.paste(image, mask=image.split()[-1] if image.mode in ('RGBA', 'LA') else None)
+                image = background
+
+            # Compress and save to BytesIO
+            output = BytesIO()
+            image.save(output, format='JPEG', quality=85, optimize=True)
+            output.seek(0)
+
+            # Upload to IPFS via Pinata
+            if not self.pinata_api_key or not self.pinata_secret:
+                logger.warning("IPFS credentials not configured. Cannot upload image.")
+                return None
+
+            headers = {
+                "pinata_api_key": self.pinata_api_key,
+                "pinata_secret_api_key": self.pinata_secret
+            }
+
+            files = {
+                'file': (filename, output, 'image/jpeg')
+            }
+
+            response = requests.post(
+                self.pinata_file_url,
+                files=files,
+                headers=headers,
+                timeout=60
+            )
+
+            if response.status_code == 200:
+                ipfs_hash = response.json()["IpfsHash"]
+                logger.info(f"✅ Image uploaded to IPFS: {ipfs_hash}")
+                return ipfs_hash
+            else:
+                logger.error(f"Failed to upload image to IPFS: {response.text}")
+                return None
+
+        except ValueError as e:
+            logger.error(f"Image validation error: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Error uploading image to IPFS: {e}")
+            return None
+
+    @staticmethod
+    def get_ipfs_gateway_url(cid: str, gateway: str = "https://gateway.pinata.cloud") -> str:
+        """
+        Get IPFS gateway URL for a given CID.
+
+        Args:
+            cid: IPFS CID
+            gateway: IPFS gateway URL (default: Pinata gateway)
+
+        Returns:
+            Full gateway URL
+        """
+        if not cid:
+            return ""
+        return f"{gateway}/ipfs/{cid}"
 
     @staticmethod
     def _format_address(address: str) -> str:

@@ -176,4 +176,12 @@ export const getAllConnections = async (): Promise<Connection[]> => {
   return response.data;
 };
 
+// Notification endpoints
+export const updateDeviceToken = async (deviceToken: string) => {
+  const response = await api.put('/profiles/device-token', {
+    device_token: deviceToken,
+  });
+  return response.data;
+};
+
 export default api;

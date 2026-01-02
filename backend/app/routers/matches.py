@@ -9,6 +9,7 @@ from app.database import get_db
 from app.models import Match, MatchStatus, Connection, User, Event, UserProfile
 from app.services.web3_service import web3_service
 from app.services.ipfs_service import ipfs_service
+from app.services.notification_service import notification_service
 from app.middleware.security import limiter
 from app.dependencies import get_current_user, get_optional_user
 from app.utils.validation import validate_wallet_address
@@ -219,6 +220,19 @@ async def respond_to_match(req: Request, request: RespondToMatchRequest, db: Ses
         db.commit()
         db.refresh(connection)
 
+        # Send notification to the other user (the one who didn't just accept)
+        other_user = user_b if is_user_a else user_a
+        other_profile = db.query(UserProfile).filter(UserProfile.user_id == other_user.id).first()
+
+        if other_profile and other_profile.device_token:
+            notification_service.send_connection_accepted(
+                device_token=other_profile.device_token,
+                accepter_username=user.username,
+                accepter_wallet=user.wallet_address,
+                event_name=event.venue_name if event else "Unknown Event",
+                connection_id=connection.id
+            )
+
         # Generate and upload NFT metadata to IPFS
         metadata = ipfs_service.generate_connection_metadata(
             connection_id=connection.id,
@@ -271,6 +285,24 @@ async def respond_to_match(req: Request, request: RespondToMatchRequest, db: Ses
     else:
         # Only one user has accepted so far
         db.commit()
+
+        # Send notification to the other user about the new connection request
+        other_user = db.query(User).filter(
+            User.id == (match.user_b_id if is_user_a else match.user_a_id)
+        ).first()
+        other_profile = db.query(UserProfile).filter(UserProfile.user_id == other_user.id).first()
+        event = db.query(Event).filter(Event.id == match.event_id).first()
+
+        if other_profile and other_profile.device_token:
+            notification_service.send_connection_request(
+                device_token=other_profile.device_token,
+                sender_username=user.username,
+                sender_wallet=user.wallet_address,
+                compatibility_score=match.compatibility_score,
+                event_name=event.venue_name if event else "Unknown Event",
+                match_id=match.id
+            )
+
         return {
             "status": "pending",
             "message": "Match accepted. Waiting for the other user to respond."
@@ -542,3 +574,49 @@ async def get_follow_all_links(
         can_access=can_access,
         message=message
     )
+
+
+def send_match_notification(match: Match, db: Session):
+    """
+    Helper function to send push notifications when a new match is created
+
+    This function should be called by the matching service/background job
+    when creating new matches after an event checkout.
+
+    Args:
+        match: The newly created Match object
+        db: Database session
+    """
+    # Get both users
+    user_a = db.query(User).filter(User.id == match.user_a_id).first()
+    user_b = db.query(User).filter(User.id == match.user_b_id).first()
+    event = db.query(Event).filter(Event.id == match.event_id).first()
+
+    if not user_a or not user_b or not event:
+        return
+
+    # Get profiles for device tokens
+    profile_a = db.query(UserProfile).filter(UserProfile.user_id == user_a.id).first()
+    profile_b = db.query(UserProfile).filter(UserProfile.user_id == user_b.id).first()
+
+    # Send notification to user_a about user_b
+    if profile_a and profile_a.device_token:
+        notification_service.send_connection_request(
+            device_token=profile_a.device_token,
+            sender_username=user_b.username,
+            sender_wallet=user_b.wallet_address,
+            compatibility_score=match.compatibility_score,
+            event_name=event.venue_name,
+            match_id=match.id
+        )
+
+    # Send notification to user_b about user_a
+    if profile_b and profile_b.device_token:
+        notification_service.send_connection_request(
+            device_token=profile_b.device_token,
+            sender_username=user_a.username,
+            sender_wallet=user_a.wallet_address,
+            compatibility_score=match.compatibility_score,
+            event_name=event.venue_name,
+            match_id=match.id
+        )

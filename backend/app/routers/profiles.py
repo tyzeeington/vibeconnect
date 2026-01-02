@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Dict
 from pydantic import BaseModel
+import logging
 
 from app.database import get_db
 from app.models import User, UserProfile
 from app.services.ai_service import analyze_onboarding_responses, generate_conversational_onboarding
+from app.services.ipfs_service import ipfs_service
 from app.middleware.security import limiter
 from app.dependencies import get_current_user, get_optional_user, require_profile
 from app.utils.validation import (
@@ -16,6 +18,7 @@ from app.utils.validation import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 # Pydantic schemas for request/response
 class ProfileCreate(BaseModel):
@@ -356,4 +359,180 @@ async def get_social_profiles(
         "visibility": "connection_only",
         "unlocked": False,
         "message": "Connect with this user to unlock their social profiles"
+    }
+
+@router.post("/picture/upload")
+@limiter.limit("10/hour")
+async def upload_profile_picture(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_profile),
+    db: Session = Depends(get_db)
+):
+    """
+    Upload a profile picture to IPFS (requires authentication).
+
+    File requirements:
+    - Format: JPEG or PNG
+    - Max size: 5MB
+    - Max dimension: 1024px (will be resized if larger)
+    """
+    # Validate file type
+    if not file.content_type or not file.content_type.startswith('image/'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be an image (JPEG or PNG)"
+        )
+
+    allowed_types = ['image/jpeg', 'image/png', 'image/jpg']
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported image format. Allowed: {', '.join(allowed_types)}"
+        )
+
+    try:
+        # Upload image to IPFS
+        cid = ipfs_service.upload_image(
+            image_file=file.file,
+            filename=file.filename or "profile_picture.jpg",
+            max_size_mb=5,
+            max_dimension=1024
+        )
+
+        if not cid:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to upload image to IPFS. Please ensure IPFS credentials are configured."
+            )
+
+        # Update user profile with new CID
+        profile = current_user.profile
+        old_cid = profile.profile_picture_cid
+        profile.profile_picture_cid = cid
+
+        db.commit()
+        db.refresh(profile)
+
+        # Get gateway URL
+        gateway_url = ipfs_service.get_ipfs_gateway_url(cid)
+
+        return {
+            "success": True,
+            "cid": cid,
+            "url": gateway_url,
+            "message": "Profile picture uploaded successfully",
+            "previous_cid": old_cid
+        }
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Error uploading profile picture: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while uploading the profile picture"
+        )
+
+@router.get("/picture/{wallet_address}")
+@limiter.limit("100/hour")
+async def get_profile_picture(
+    request: Request,
+    wallet_address: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get profile picture URL for a user by wallet address.
+    """
+    # Validate wallet address
+    validated_wallet = validate_wallet_address(wallet_address)
+
+    user = db.query(User).filter(User.wallet_address == validated_wallet).first()
+
+    if not user or not user.profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile not found"
+        )
+
+    profile = user.profile
+
+    if not profile.profile_picture_cid:
+        return {
+            "has_picture": False,
+            "cid": None,
+            "url": None
+        }
+
+    gateway_url = ipfs_service.get_ipfs_gateway_url(profile.profile_picture_cid)
+
+    return {
+        "has_picture": True,
+        "cid": profile.profile_picture_cid,
+        "url": gateway_url
+    }
+
+@router.delete("/picture")
+@limiter.limit("10/hour")
+async def delete_profile_picture(
+    request: Request,
+    current_user: User = Depends(require_profile),
+    db: Session = Depends(get_db)
+):
+    """
+    Delete the current user's profile picture (requires authentication).
+    Note: This only removes the reference from the database.
+    The image remains on IPFS (immutable storage).
+    """
+    profile = current_user.profile
+
+    if not profile.profile_picture_cid:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No profile picture to delete"
+        )
+
+    old_cid = profile.profile_picture_cid
+    profile.profile_picture_cid = None
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Profile picture reference removed",
+        "deleted_cid": old_cid,
+        "note": "Image remains on IPFS but is no longer associated with your profile"
+    }
+
+class DeviceTokenUpdate(BaseModel):
+    device_token: str
+
+@router.put("/device-token")
+@limiter.limit("30/hour")
+async def update_device_token(
+    request: Request,
+    token_data: DeviceTokenUpdate,
+    current_user: User = Depends(require_profile),
+    db: Session = Depends(get_db)
+):
+    """
+    Update user's FCM device token for push notifications (requires authentication)
+
+    Args:
+        token_data: Object containing the device_token
+    """
+    profile = current_user.profile
+
+    # Update device token
+    profile.device_token = token_data.device_token
+
+    db.commit()
+    db.refresh(profile)
+
+    return {
+        "success": True,
+        "message": "Device token updated successfully"
     }
