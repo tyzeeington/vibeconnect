@@ -44,11 +44,17 @@ allowed_origins = [
 if settings.ENVIRONMENT == "production":
     allowed_origins.extend([
         "https://vibeconnect.vercel.app",
+        "https://vibeconnect-plum.vercel.app",
         "https://vibeconnect-*.vercel.app",  # Vercel preview deployments
     ])
 else:
-    # In development, allow all origins for easier testing
-    allowed_origins.append("*")
+    # Development: whitelist local origins only (security improvement)
+    allowed_origins.extend([
+        "http://localhost:8081",   # Expo development server
+        "http://127.0.0.1:3000",   # Alternative localhost
+        "http://127.0.0.1:19006",  # Alternative Expo
+        "exp://localhost:19000",   # Expo deep linking
+    ])
 
 app.add_middleware(
     CORSMiddleware,
