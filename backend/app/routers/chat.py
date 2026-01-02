@@ -8,11 +8,9 @@ from datetime import datetime
 from app.database import get_db
 from app.models import User, UserProfile
 from app.services.ai_service import analyze_onboarding_responses
+from app.services.session_service import SessionService
 
 router = APIRouter()
-
-# In-memory chat session storage (in production, use Redis or database)
-chat_sessions: Dict[str, Dict] = {}
 
 class ChatStartRequest(BaseModel):
     wallet_address: str
@@ -97,12 +95,15 @@ async def start_chat_session(
 
     # Create session
     session_id = f"{request.wallet_address}_{datetime.now().timestamp()}"
-    chat_sessions[session_id] = {
+    session_data = {
         "wallet_address": request.wallet_address,
         "current_dimension_index": 0,
         "responses": {},
         "started_at": datetime.now().isoformat()
     }
+
+    # Store session in Redis with 1 hour TTL
+    SessionService.store_chat_session(session_id, session_data, ttl=3600)
 
     return ChatResponse(
         session_id=session_id,
@@ -122,8 +123,8 @@ async def send_chat_message(
     """
     Send a message in the chat session and get the next question
     """
-    # Get session
-    session = chat_sessions.get(request.session_id)
+    # Get session from Redis
+    session = SessionService.get_chat_session(request.session_id)
     if not session:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -151,6 +152,9 @@ async def send_chat_message(
         session["current_dimension_index"] = next_index
         next_dimension = DIMENSIONS[next_index]
 
+        # Update session in Redis
+        SessionService.store_chat_session(request.session_id, session, ttl=3600)
+
         progress = ((next_index) / len(DIMENSIONS)) * 100
 
         return ChatResponse(
@@ -164,6 +168,9 @@ async def send_chat_message(
         )
     else:
         # All questions answered
+        # Update session in Redis
+        SessionService.store_chat_session(request.session_id, session, ttl=3600)
+
         progress = 100.0
 
         return ChatResponse(
@@ -184,8 +191,8 @@ async def complete_chat_session(
     """
     Complete the chat session and create the user profile with AI analysis
     """
-    # Get session
-    session = chat_sessions.get(request.session_id)
+    # Get session from Redis
+    session = SessionService.get_chat_session(request.session_id)
     if not session:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -252,8 +259,8 @@ async def complete_chat_session(
     db.commit()
     db.refresh(profile)
 
-    # Clean up session
-    del chat_sessions[request.session_id]
+    # Clean up session from Redis
+    SessionService.delete_chat_session(request.session_id)
 
     return ProfileCreatedResponse(
         success=True,
@@ -291,7 +298,7 @@ async def delete_chat_session(session_id: str, wallet_address: str):
     """
     Delete/cancel a chat session
     """
-    session = chat_sessions.get(session_id)
+    session = SessionService.get_chat_session(session_id)
     if not session:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -304,5 +311,5 @@ async def delete_chat_session(session_id: str, wallet_address: str):
             detail="Unauthorized"
         )
 
-    del chat_sessions[session_id]
+    SessionService.delete_chat_session(session_id)
     return {"success": True, "message": "Session deleted"}

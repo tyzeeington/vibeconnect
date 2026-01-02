@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.database import engine, get_db
 from app import models
-from app.routers import auth, profiles, events, matches, connections, chat
+from app.routers import auth, profiles, events, matches, connections, chat, leaderboard
 from app.config import settings
 from app.middleware.security import (
     limiter,
@@ -73,6 +73,7 @@ app.include_router(events.router, prefix="/api/events", tags=["Events"])
 app.include_router(matches.router, prefix="/api/matches", tags=["Matches"])
 app.include_router(connections.router, prefix="/api/connections", tags=["Connections"])
 app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
+app.include_router(leaderboard.router, prefix="/api/leaderboard", tags=["Leaderboard"])
 
 @app.get("/")
 async def root():

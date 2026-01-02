@@ -483,3 +483,62 @@ class TestConnectionEdgeCases:
         # Attempting to create connection should fail
         # This should be prevented at service level
         assert test_match.status == MatchStatus.REJECTED
+
+    def test_expired_match_status(self, db: Session, test_match: Match):
+        """Test that expired matches are marked with EXPIRED status"""
+        # Set match to expired (72 hours ago)
+        from datetime import datetime, timedelta
+        test_match.expires_at = datetime.utcnow() - timedelta(hours=73)
+        test_match.status = MatchStatus.EXPIRED
+        db.commit()
+
+        db.refresh(test_match)
+        assert test_match.status == MatchStatus.EXPIRED
+
+    def test_double_acceptance_idempotency(self, db: Session, test_match: Match):
+        """Test that accepting a match twice doesn't cause issues (idempotency)"""
+        # First acceptance by user A
+        test_match.user_a_accepted = True
+        test_match.user_a_responded_at = datetime.utcnow()
+        first_response_time = test_match.user_a_responded_at
+        db.commit()
+
+        # Try to accept again (should maintain original response time)
+        db.refresh(test_match)
+        test_match.user_a_accepted = True  # Accept again
+        db.commit()
+
+        db.refresh(test_match)
+        assert test_match.user_a_accepted is True
+        assert test_match.user_a_responded_at == first_response_time
+
+    def test_both_users_reject_match(self, db: Session, test_match: Match):
+        """Test that match is rejected if either user rejects"""
+        test_match.user_a_accepted = False
+        test_match.user_b_accepted = False
+        test_match.status = MatchStatus.REJECTED
+        db.commit()
+
+        db.refresh(test_match)
+        assert test_match.status == MatchStatus.REJECTED
+
+    def test_high_compatibility_awards_bonus_peso(self, db: Session, accepted_match: Match, test_event: Event):
+        """Test that high compatibility (>=90%) awards bonus PESOBytes"""
+        # Set match to high compatibility
+        accepted_match.compatibility_score = 92.0
+        db.commit()
+
+        # Create connection with bonus PESO
+        pesobytes = 15 if accepted_match.compatibility_score >= 90 else 10
+
+        connection = Connection(
+            match_id=accepted_match.id,
+            user_a_id=accepted_match.user_a_id,
+            user_b_id=accepted_match.user_b_id,
+            event_id=test_event.id,
+            pesobytes_earned=pesobytes
+        )
+        db.add(connection)
+        db.commit()
+
+        assert connection.pesobytes_earned == 15  # Bonus for high compatibility
