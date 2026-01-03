@@ -1,0 +1,21 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run lint-staged for all staged files
+npx lint-staged
+
+# Run Python linting for backend if .py files are staged
+if git diff --cached --name-only | grep -q '\.py$'; then
+  echo "🐍 Running Python linters..."
+  cd backend && \
+  python -m black --check . && \
+  python -m isort --check-only . && \
+  python -m flake8 . && \
+  cd ..
+  if [ $? -ne 0 ]; then
+    echo "❌ Python linting failed. Run 'cd backend && black . && isort .' to fix."
+    exit 1
+  fi
+fi
+
+echo "✅ Pre-commit checks passed!"

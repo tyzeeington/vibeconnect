@@ -1,10 +1,19 @@
-# Environment files with secrets
+# Environment files with secrets (NEVER commit these!)
 .env
 .env.local
+.env.*.local
 *.env
+!.env.example
 
 # Encryption key (NEVER commit this!)
 .vibeconnect-key
+
+# Firebase credentials (NEVER commit this!)
+firebase-credentials.json
+*-firebase-adminsdk-*.json
+
+# Service account keys
+service-account-*.json
 
 # Python
 __pycache__/

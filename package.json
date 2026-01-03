@@ -1,0 +1,41 @@
+{
+  "name": "vibeconnect-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VibeConnect - Event-based social networking with NFTs and tokens",
+  "workspaces": [
+    "frontend",
+    "mobile",
+    "contracts"
+  ],
+  "scripts": {
+    "prepare": "husky install",
+    "lint": "npm run lint --workspaces --if-present",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,md,sol}\"",
+    "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,css,md,sol}\"",
+    "demo:party": "cd scripts && node demo-party.js",
+    "deploy:sepolia": "cd contracts && npm run deploy:base-sepolia"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.11",
+    "prettier": "^3.4.2",
+    "prettier-plugin-solidity": "^1.4.1"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "*.{json,css,md}": [
+      "prettier --write"
+    ],
+    "*.sol": [
+      "prettier --write --plugin=prettier-plugin-solidity"
+    ],
+    "*.py": [
+      "black",
+      "isort"
+    ]
+  }
+}

@@ -5,18 +5,27 @@
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
+    "test:coverage": "hardhat coverage",
     "check-balance": "hardhat run scripts/check-balance.js --network baseSepolia",
+    "deploy:sepolia": "hardhat run scripts/deploy-all.js --network baseSepolia",
     "deploy:base-sepolia": "hardhat run scripts/deploy.js --network baseSepolia",
     "deploy:base": "hardhat run scripts/deploy.js --network base",
     "deploy:mumbai": "hardhat run scripts/deploy.js --network mumbai",
     "deploy:polygon": "hardhat run scripts/deploy.js --network polygon",
     "deploy:local": "hardhat run scripts/deploy.js --network localhost",
     "verify:base-sepolia": "hardhat verify --network baseSepolia",
-    "node": "hardhat node"
+    "node": "hardhat node",
+    "lint": "solhint 'contracts/**/*.sol'",
+    "lint:fix": "solhint 'contracts/**/*.sol' --fix",
+    "format": "prettier --write 'contracts/**/*.sol'"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
-    "hardhat": "^2.19.0"
+    "eslint": "^8.57.0",
+    "hardhat": "^2.19.0",
+    "prettier": "^3.4.2",
+    "prettier-plugin-solidity": "^1.4.1",
+    "solhint": "^5.0.3"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.0.0",
