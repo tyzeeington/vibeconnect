@@ -1,0 +1,26 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Enforce conventional commit format
+# Format: type(scope?): subject
+# Examples: feat: add login, fix(api): resolve timeout, chore: update deps
+
+commit_msg=$(cat "$1")
+pattern="^(feat|fix|docs|style|refactor|perf|test|chore|build|ci|revert)(\(.+\))?: .{1,100}"
+
+if ! echo "$commit_msg" | grep -qE "$pattern"; then
+  echo "❌ Invalid commit message format!"
+  echo ""
+  echo "Format: type(scope?): subject"
+  echo ""
+  echo "Types: feat, fix, docs, style, refactor, perf, test, chore, build, ci, revert"
+  echo ""
+  echo "Examples:"
+  echo "  ✅ feat: add gasless minting"
+  echo "  ✅ fix(nft): resolve confetti animation"
+  echo "  ✅ chore: update dependencies"
+  echo ""
+  exit 1
+fi
+
+echo "✅ Commit message format valid!"
