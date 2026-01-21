@@ -9,7 +9,7 @@
     "contracts"
   ],
   "scripts": {
-    "prepare": "node -e \"if (!process.env.CI) require('child_process').execSync('husky install', {stdio: 'inherit'})\"",
+    "prepare": "node -e \"try { require('husky') } catch { process.exit(0) }\" && husky install || true",
     "lint": "npm run lint --workspaces --if-present",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,md,sol}\"",
     "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,css,md,sol}\"",
