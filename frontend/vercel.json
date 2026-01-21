@@ -1,0 +1,11 @@
+{
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "outputDirectory": ".next",
+  "env": {
+    "NEXT_PUBLIC_API_URL": "https://vibeconnect-production.up.railway.app",
+    "NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID": "a3daa77487c8eb6cc5f861ef4d01f6fa"
+  }
+}
