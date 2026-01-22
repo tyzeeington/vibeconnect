@@ -62,9 +62,14 @@ export default function EventsPage() {
   const hasMapboxToken = Boolean(MAPBOX_TOKEN);
 
   useEffect(() => {
-    fetchEvents();
     requestUserLocation();
   }, []);
+
+  useEffect(() => {
+    if (userLocation) {
+      fetchEvents();
+    }
+  }, [userLocation, radiusKm]);
 
   useEffect(() => {
     filterAndSortEvents();
@@ -101,7 +106,18 @@ export default function EventsPage() {
 
   const fetchEvents = async () => {
     try {
-      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/events/active`);
+      // Wait for user location before fetching events
+      if (!userLocation) {
+        return;
+      }
+
+      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/events/active`, {
+        params: {
+          latitude: userLocation.latitude,
+          longitude: userLocation.longitude,
+          radius_km: radiusKm
+        }
+      });
       setEvents(response.data);
     } catch (error) {
       console.error('Error fetching events:', error);

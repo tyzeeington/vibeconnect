@@ -14,9 +14,10 @@ router = APIRouter()
 
 class CheckInRequest(BaseModel):
     event_id: str
-    user_id: int  # In production, this would come from JWT token
-    latitude: float
-    longitude: float
+    user_id: int = None  # Optional - either user_id or wallet_address must be provided
+    wallet_address: str = None  # Alternative to user_id
+    latitude: float = None  # Optional - will use event location if not provided
+    longitude: float = None  # Optional - will use event location if not provided
     venue_name: str = "Unknown Venue"  # Optional venue name for event creation
 
 class CheckOutRequest(BaseModel):
@@ -29,6 +30,11 @@ class EventResponse(BaseModel):
     latitude: float
     longitude: float
     attendees_count: int
+    event_type: str = None
+    start_time: str = None
+    end_time: str = None
+    distance_km: float = None
+    description: str = None
 
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """
@@ -57,16 +63,31 @@ async def check_in(req: Request, request: CheckInRequest, db: Session = Depends(
     """
     # Validate inputs
     validated_event_id = validate_event_id(request.event_id)
-    validate_coordinates(request.latitude, request.longitude)
 
-    # Verify user exists
-    user = db.query(User).filter(User.id == request.user_id).first()
+    # Get user by user_id or wallet_address
+    if request.user_id:
+        user = db.query(User).filter(User.id == request.user_id).first()
+    elif request.wallet_address:
+        user = db.query(User).filter(User.wallet_address == request.wallet_address).first()
+        if not user:
+            # Create user if doesn't exist
+            user = User(wallet_address=request.wallet_address, created_at=datetime.utcnow())
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+    else:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Either user_id or wallet_address must be provided")
+
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
     # Create event if doesn't exist
     event = db.query(Event).filter(Event.event_id == request.event_id).first()
     if not event:
+        # If creating a new event, coordinates are required
+        if not request.latitude or not request.longitude:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Latitude and longitude are required when creating a new event")
+        validate_coordinates(request.latitude, request.longitude)
         event = Event(
             event_id=request.event_id,
             venue_name=request.venue_name,
@@ -77,6 +98,11 @@ async def check_in(req: Request, request: CheckInRequest, db: Session = Depends(
         db.add(event)
         db.commit()
         db.refresh(event)
+
+    # Use event coordinates if not provided in request
+    checkin_lat = request.latitude if request.latitude is not None else event.latitude
+    checkin_lon = request.longitude if request.longitude is not None else event.longitude
+    validate_coordinates(checkin_lat, checkin_lon)
 
     # Check if user already has an active check-in (no check-out time)
     existing_checkin = db.query(EventCheckIn).filter(
@@ -93,10 +119,10 @@ async def check_in(req: Request, request: CheckInRequest, db: Session = Depends(
 
     # Create check-in record
     check_in_record = EventCheckIn(
-        user_id=request.user_id,
+        user_id=user.id,
         event_id=event.id,
-        latitude=request.latitude,
-        longitude=request.longitude,
+        latitude=checkin_lat,
+        longitude=checkin_lon,
         check_in_time=datetime.utcnow()
     )
     db.add(check_in_record)
@@ -194,7 +220,12 @@ async def get_active_events(
                 venue_name=event.venue_name,
                 latitude=event.latitude,
                 longitude=event.longitude,
-                attendees_count=active_attendees
+                attendees_count=active_attendees,
+                event_type=event.event_type,
+                start_time=event.start_time.isoformat() if event.start_time else None,
+                end_time=event.end_time.isoformat() if event.end_time else None,
+                distance_km=round(distance, 2),
+                description=None  # Not in Event model yet
             ))
 
     return nearby_events
