@@ -203,24 +203,6 @@
     "inputs": [
       {
         "indexed": true,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "userA",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "userB",
-        "type": "address"
-      },
-      {
-        "indexed": false,
         "internalType": "string",
         "name": "eventId",
         "type": "string"
@@ -228,11 +210,92 @@
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "compatibilityScore",
+        "name": "burnedCount",
         "type": "uint256"
       }
     ],
-    "name": "ConnectionMinted",
+    "name": "BurnCompleted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "string",
+        "name": "eventId",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "EntryClaimed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "string",
+        "name": "eventId",
+        "type": "string"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "attendee",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "metadataURI",
+        "type": "string"
+      }
+    ],
+    "name": "EntryMinted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "string",
+        "name": "eventId",
+        "type": "string"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "organizer",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "capacity",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "burnDeadline",
+        "type": "uint256"
+      }
+    ],
+    "name": "EventCreated",
     "type": "event"
   },
   {
@@ -332,21 +395,77 @@
   {
     "inputs": [
       {
+        "internalType": "string",
+        "name": "eventId",
+        "type": "string"
+      }
+    ],
+    "name": "burnUnclaimed",
+    "outputs": [
+      {
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
       }
     ],
-    "name": "connections",
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "claimedStatus",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "eventId",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "capacity",
+        "type": "uint256"
+      }
+    ],
+    "name": "createEvent",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "name": "events",
     "outputs": [
       {
         "internalType": "address",
-        "name": "userA",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "userB",
+        "name": "organizer",
         "type": "address"
       },
       {
@@ -356,12 +475,27 @@
       },
       {
         "internalType": "uint256",
-        "name": "timestamp",
+        "name": "capacity",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "compatibilityScore",
+        "name": "totalMinted",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalClaimed",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "createdAt",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "burnDeadline",
         "type": "uint256"
       }
     ],
@@ -390,75 +524,73 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
+        "internalType": "string",
+        "name": "eventId",
+        "type": "string"
       }
     ],
-    "name": "getConnection",
+    "name": "getEvent",
     "outputs": [
       {
-        "internalType": "address",
-        "name": "userA",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "userB",
-        "type": "address"
-      },
+        "components": [
+          {
+            "internalType": "address",
+            "name": "organizer",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "eventId",
+            "type": "string"
+          },
+          {
+            "internalType": "uint256",
+            "name": "capacity",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalMinted",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalClaimed",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "createdAt",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "burnDeadline",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct EventEntryNFT.Event",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
       {
         "internalType": "string",
         "name": "eventId",
         "type": "string"
-      },
-      {
-        "internalType": "uint256",
-        "name": "timestamp",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "compatibilityScore",
-        "type": "uint256"
       }
     ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      }
-    ],
-    "name": "getConnectionCount",
+    "name": "getTotalSupply",
     "outputs": [
       {
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      }
-    ],
-    "name": "getUserConnections",
-    "outputs": [
-      {
-        "internalType": "uint256[]",
-        "name": "",
-        "type": "uint256[]"
       }
     ],
     "stateMutability": "view",
@@ -491,56 +623,40 @@
   {
     "inputs": [
       {
+        "internalType": "string",
+        "name": "eventId",
+        "type": "string"
+      },
+      {
         "internalType": "uint256",
         "name": "tokenId",
         "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
       }
     ],
-    "name": "isUserInConnection",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
+    "name": "markAsClaimed",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
     "inputs": [
-      {
-        "internalType": "address",
-        "name": "userA",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "userB",
-        "type": "address"
-      },
       {
         "internalType": "string",
         "name": "eventId",
         "type": "string"
       },
       {
+        "internalType": "address",
+        "name": "attendee",
+        "type": "address"
+      },
+      {
         "internalType": "string",
         "name": "metadataURI",
         "type": "string"
-      },
-      {
-        "internalType": "uint256",
-        "name": "compatibilityScore",
-        "type": "uint256"
       }
     ],
-    "name": "mintConnection",
+    "name": "mintEntry",
     "outputs": [
       {
         "internalType": "uint256",
@@ -757,30 +873,6 @@
     "name": "transferOwnership",
     "outputs": [],
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "name": "userConnections",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   }
 ]
