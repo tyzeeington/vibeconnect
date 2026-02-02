@@ -202,43 +202,6 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "userA",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "userB",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "eventId",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "compatibilityScore",
-        "type": "uint256"
-      }
-    ],
-    "name": "ConnectionMinted",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
         "indexed": false,
         "internalType": "uint256",
         "name": "_tokenId",
@@ -265,6 +228,50 @@
       }
     ],
     "name": "OwnershipTransferred",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "metadataURI",
+        "type": "string"
+      }
+    ],
+    "name": "ProfileMinted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "newMetadataURI",
+        "type": "string"
+      }
+    ],
+    "name": "ProfileUpdated",
     "type": "event"
   },
   {
@@ -333,45 +340,6 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "name": "connections",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "userA",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "userB",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "eventId",
-        "type": "string"
-      },
-      {
-        "internalType": "uint256",
-        "name": "timestamp",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "compatibilityScore",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
         "name": "tokenId",
         "type": "uint256"
       }
@@ -390,51 +358,12 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getConnection",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "userA",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "userB",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "eventId",
-        "type": "string"
-      },
-      {
-        "internalType": "uint256",
-        "name": "timestamp",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "compatibilityScore",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "address",
         "name": "user",
         "type": "address"
       }
     ],
-    "name": "getConnectionCount",
+    "name": "getProfileId",
     "outputs": [
       {
         "internalType": "uint256",
@@ -453,12 +382,12 @@
         "type": "address"
       }
     ],
-    "name": "getUserConnections",
+    "name": "hasProfile",
     "outputs": [
       {
-        "internalType": "uint256[]",
+        "internalType": "bool",
         "name": "",
-        "type": "uint256[]"
+        "type": "bool"
       }
     ],
     "stateMutability": "view",
@@ -491,56 +420,17 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
         "internalType": "address",
-        "name": "user",
+        "name": "to",
         "type": "address"
-      }
-    ],
-    "name": "isUserInConnection",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "userA",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "userB",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "eventId",
-        "type": "string"
       },
       {
         "internalType": "string",
         "name": "metadataURI",
         "type": "string"
-      },
-      {
-        "internalType": "uint256",
-        "name": "compatibilityScore",
-        "type": "uint256"
       }
     ],
-    "name": "mintConnection",
+    "name": "mintProfile",
     "outputs": [
       {
         "internalType": "uint256",
@@ -586,6 +476,25 @@
       }
     ],
     "name": "ownerOf",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "profileOwners",
     "outputs": [
       {
         "internalType": "address",
@@ -762,17 +671,30 @@
   {
     "inputs": [
       {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "newMetadataURI",
+        "type": "string"
+      }
+    ],
+    "name": "updateProfile",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
         "name": "",
         "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
       }
     ],
-    "name": "userConnections",
+    "name": "userProfiles",
     "outputs": [
       {
         "internalType": "uint256",
